@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>GalliumOS Web</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: Verdana, sans-serif; }
+    body.bg { background-size: cover; background-position: center; }
+
+    .overlay-screen {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #121212; color: white;
+      display: flex; justify-content: center; align-items: center;
+      flex-direction: column; z-index: 999999;
+    }
+    .overlay-box {
+      background: rgba(255,255,255,0.08);
+      padding: 20px; border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      text-align: center; width: 420px; max-width: 95%;
+    }
+    .overlay-box h1 { margin: 0 0 20px; font-size: 1.4em; }
+    select, button, input {
+      width: 100%; padding: 10px; border-radius: 6px;
+      border: none; font-size: 14px; margin-bottom: 10px;
+    }
+    button { background: #1a73e8; color: white; cursor: pointer; }
+    button:hover { background: #2a85ff; }
+
+    #gallium-taskbar {
+      width: 100%; height: 45px;
+      position: fixed; bottom: 0; left: 0;
+      background: rgba(40,40,40,0.85);
+      display: flex; align-items: center; justify-content: space-between;
+      z-index: 1000; color: white; padding: 0 15px; box-sizing: border-box;
+    }
+    #gallium-time { font-size: 14px; padding-right: 10px; }
+
+    window {
+      display: block; position: absolute;
+      border-radius: 6px; background: white;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      overflow: hidden;
+    }
+    .titleBar {
+      background: #333; color: white;
+      height: 28px; line-height: 28px; padding: 0 8px;
+      cursor: move; display: flex; justify-content: space-between; align-items: center;
+    }
+    .titleButtons span { margin-left: 8px; cursor: pointer; user-select: none; }
+    .windowContent { width: 100%; height: calc(100% - 28px); background: white; }
+    .full-frame { width: 100%; height: 100%; border: none; }
+  </style>
+</head>
+<body class="bg">
+
+<div id="boot-screen" class="overlay-screen">
+  <div class="overlay-box">
+    <h1>Select Rammerhead Server</h1>
+    <select id="server-select"></select>
+    <button id="boot-start">Start GalliumOS</button>
+  </div>
+</div>
+
+<div id="error-screen" class="overlay-screen" style="display:none;">
+  <div class="overlay-box">
+    <h1>Server Unavailable</h1>
+    <select id="retry-select"></select>
+    <button id="retry-start">Try Another Server</button>
+  </div>
+</div>
+
+<div id="gallium-taskbar" style="display:none;">
+  <div style="cursor:pointer;" id="open-settings">⚙ Settings</div>
+  <div id="gallium-time"></div>
+</div>
+
+<script>
+const servers = [
+  "https://britannica.cf/","https://r.britannica.cf/","https://britannica.gq/","https://r.britannica.gq/",
+  "https://codewars.cf/","https://r.codewars.cf/","https://codewars.gq/","https://r.codewars.gq/",
+  "https://pluralsight.cf/","https://r.pluralsight.cf/","https://pluralsight.gq/","https://r.pluralsight.gq/",
+  "https://flipgrid.cf/","https://r.flipgrid.cf/","https://flipgrid.gq/","https://r.flipgrid.gq/",
+  "https://flipgrid.tk/","https://r.flipgrid.tk/","https://coursera.cf/","https://r.coursera.cf/",
+  "https://coursera.gq/","https://r.coursera.gq/","https://sharkquiz.cf/","https://r.sharkquiz.cf/",
+  "https://sharkquiz.gq/","https://r.sharkquiz.gq/","https://monkeytype.cf/","https://r.monkeytype.cf/",
+  "https://monkeytype.gq/","https://r.monkeytype.gq/","https://monkeytype.tk/","https://r.monkeytype.tk/",
+  "https://quizlet.gq/","https://r.quizlet.gq/","https://typeracer.gq/","https://r.typeracer.gq/",
+  "https://freecodecamp.tk/","https://r.freecodecamp.tk/","https://freecodecamp.gq/","https://r.freecodecamp.gq/",
+  "https://achievementnetwork.gq/","https://r.achievementnetwork.gq/","https://achievementnetwork.cf/","https://r.achievementnetwork.cf/",
+  "https://achievementnetwork.tk/","https://r.achievementnetwork.tk/","https://soraapp.gq/","https://r.soraapp.gq/",
+  "https://platform.everfi.gq/","https://r.platform.everfi.gq/",
+  "https://education.mordeco.com/","https://edu.mordeco.com/","https://staff.mordeco.com/","https://admin.mordeco.com/",
+  "https://quantumphysics.sciencesimplified.pro/","https://biographyhelp.sciencesimplified.pro/","https://math.sciencesimplified.pro/",
+  "https://login.googlesclassroom.gq/","https://login.googlesclassroom.cf/","https://login.achievementnetwork.cf/","https://login.achievementnetwork.gq/",
+  "https://chrome.lhost.dev/","https://blocked.lhost.dev/","https://tabs.lhost.dev/","https://r.outschool.tk/","https://r.outschool.gq/",
+  "https://learner.outschool.tk/","https://learner.outschool.gq/","https://membean.cf/","https://membean.gq/",
+  "https://lsmdm.tk/","https://lsmdm.gq/","https://lsmdm.cf/",
+  "https://jeo2.goldsoft.rs/","https://jeo3.goldsoft.rs/","https://jeo4.goldsoft.rs/",
+  "https://jeo2.todotrabajo.ar/","https://jeo3.todotrabajo.ar/","https://jeo4.todotrabajo.ar/",
+  "https://jeo2.subcetatecity.ro/","https://jeo3.subcetatecity.ro/","https://jeo4.subcetatecity.ro/",
+  "https://reading.englishpapers.online/","https://sentry.soraapp.gq/","https://mathtestaxamschool.zcvx.cf/","https://canvas.lnstructure.cf/",
+  "https://amplifyscience.cf/","https://theplan.planb.gq/","https://whywhywhy.deleesportsmedicine.com/","https://saltersforeheadhasa.shinylook.ro/",
+  "https://rx.blackxfiied.xyz/","https://best-pizza-is-whopper.adentse.com/","https://www.pleaseinput.html-5.me/","https://slape3.zwanenwater48.nl/",
+  "https://oh-hell-nah.5inas.cf/","https://search.mugmovies.pics/","https://sso.prodigygame.online/","https://fun1.frostbite.cc/",
+  "https://signup.soapclient.com/","https://fair.hashable.org/","https://gabeisagoober.bluepill.ml/","https://howtomath.theeduweb.com/",
+  "https://math4kids.containersarelinux.net/","https://freenomisratelimitingme.cf/","https://error418.cobos.mx/","https://jeo.robot-agachado.org/",
+  "https://reading-helper.gq/","https://beastacademy.gq/","https://lizzyyy.bgg.cl/","https://1.containersarelinux.net/",
+  "https://rammer.rude.li/","https://booket.cf/","https://pxnguin.vlad.md/","https://relay.lsaccess.cf/","https://googlesclassroom.gq",
+  "https://houydabeast.redpill.ml/","https://joyridearoundthepark.5inas.cf/","https://shouldiboosttherammerheadserver.tk/","https://shouldiboosttherammerheadserver.gq/"
+];
+
+function populateSelect(sel) {
+  sel.innerHTML = "";
+  servers.forEach(url => {
+    let opt = document.createElement("option");
+    opt.value = url; opt.textContent = url;
+    sel.appendChild(opt);
+  });
+}
+
+populateSelect(document.getElementById("server-select"));
+populateSelect(document.getElementById("retry-select"));
+
+const savedServer = localStorage.getItem("rammerhead_server");
+if(savedServer && servers.includes(savedServer)) document.getElementById("server-select").value = savedServer;
+
+document.getElementById("boot-start").addEventListener("click", () => {
+  launchServer(document.getElementById("server-select").value);
+});
+document.getElementById("retry-start").addEventListener("click", () => {
+  launchServer(document.getElementById("retry-select").value);
+});
+
+function launchServer(serverUrl) {
+  serverUrl = serverUrl.split("#")[0];
+  document.getElementById("boot-screen").style.display = "none";
+  document.getElementById("error-screen").style.display = "none";
+  document.getElementById("gallium-taskbar").style.display = "flex";
+  spawnBrowserWindow("Rammerhead Browser", serverUrl, true);
+}
+
+function spawnBrowserWindow(title, url, fullscreen=false) {
+  const win = document.createElement("window");
+  if(fullscreen){
+    win.style.left = "0"; win.style.top = "0";
+    win.style.width = "100%"; win.style.height = "calc(100% - 45px)";
+    win.dataset.fullscreen = "true";
+  } else {
+    win.style.width = "800px"; win.style.height = "500px";
+    win.style.left = "50px"; win.style.top = "50px";
+  }
+
+  const bar = document.createElement("div");
+  bar.className = "titleBar";
+  bar.innerHTML = `
+    <span>${title}</span>
+    <span class="titleButtons">
+      <span onclick="toggleFullscreen(this)">⛶</span>
+      <span onclick="this.closest('window').remove()">✖</span>
+    </span>`;
+  win.appendChild(bar);
+
+  const content = document.createElement("div");
+  content.className = "windowContent"; win.appendChild(content);
+
+  const iframe = document.createElement("iframe");
+  iframe.src = url; iframe.className = "full-frame";
+  content.appendChild(iframe);
+
+  let failTimer = setTimeout(() => { serverError(); win.remove(); }, 5000);
+  iframe.addEventListener("load", () => clearTimeout(failTimer));
+  iframe.addEventListener("error", () => { serverError(); win.remove(); });
+
+  let offsetX, offsetY, dragging=false;
+  bar.addEventListener("mousedown", e => { dragging=true; offsetX=e.clientX-win.offsetLeft; offsetY=e.clientY-win.offsetTop; });
+  document.addEventListener("mouseup", ()=>dragging=false);
+  document.addEventListener("mousemove", e=>{ if(dragging){ win.style.left=(e.clientX-offsetX)+"px"; win.style.top=(e.clientY-offsetY)+"px"; } });
+
+  document.body.appendChild(win);
+}
+
+function toggleFullscreen(el) {
+  const win = el.closest("window");
+  if (!win.dataset.fullscreen) {
+    win.dataset.left = win.style.left; win.dataset.top = win.style.top;
+    win.dataset.width = win.style.width; win.dataset.height = win.style.height;
+    win.style.left = "0"; win.style.top = "0";
+    win.style.width = "100%"; win.style.height = "calc(100% - 45px)";
+    win.dataset.fullscreen = "true";
+  } else {
+    win.style.left = win.dataset.left; win.style.top = win.dataset.top;
+    win.style.width = win.dataset.width; win.style.height = win.dataset.height;
+    delete win.dataset.fullscreen;
+  }
+}
+
+function serverError() {
+  document.getElementById("error-screen").style.display = "flex";
+  document.getElementById("gallium-taskbar").style.display = "none";
+}
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById("gallium-time").textContent = now.getHours().toString().padStart(2,"0")+":"+now.getMinutes().toString().padStart(2,"0");
+}
+setInterval(updateClock,1000); updateClock();
+
+document.getElementById("open-settings").addEventListener("click", ()=>{
+  const win = document.createElement("window");
+  win.style.width = "400px"; win.style.height = "320px";
+  win.style.left = "100px"; win.style.top = "100px";
+
+  const bar = document.createElement("div");
+  bar.className = "titleBar";
+  bar.innerHTML = `<span>Settings</span><span style="cursor:pointer;" onclick="this.closest('window').remove()">✖</span>`;
+  win.appendChild(bar);
+
+  const content = document.createElement("div");
+  content.className = "windowContent"; win.appendChild(content);
+
+  content.innerHTML = `
+    <h3>Background</h3>
+    <input type="text" id="bg-url" placeholder="Image URL" value="${localStorage.getItem("bg")||""}">
+    <h3>Default Server</h3>
+    <select id="default-server"></select>
+    <button onclick="saveSettings()">Save Settings</button>
+  `;
+  populateSelect(content.querySelector("#default-server"));
+  if(savedServer) content.querySelector("#default-server").value = savedServer;
+  document.body.appendChild(win);
+});
+
+function saveSettings() {
+  const bg = document.getElementById("bg-url").value;
+  const sel = document.getElementById("default-server").value;
+  if(bg) { localStorage.setItem("bg", bg); document.body.style.backgroundImage = "url('"+bg+"')"; }
+  if(sel) { localStorage.setItem("rammerhead_server", sel.split("#")[0]); }
+  alert("Settings saved.");
+}
+
+if(localStorage.getItem("bg")) document.body.style.backgroundImage = "url('"+localStorage.getItem("bg")+"')";
+</script>
+</body>
+</html>
